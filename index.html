@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>逸夫中学帖子社区</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #f0f4f8; padding: 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .app { width: 100%; max-width: 500px; position: relative;}
+        
+        #refreshTip { position: fixed; top: -50px; left: 50%; transform: translateX(-50%); font-size: 13px; color: #666; padding: 10px 20px; border-radius: 20px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10; transition: top 0.2s; display: flex; align-items: center; gap: 5px; }
+        
+        .top-bar { background: #fff; border-radius: 20px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .user-info { display: flex; align-items: center; gap: 10px; font-weight: bold; color: #333; cursor: pointer; }
+        .avatar { width: 40px; height: 40px; background: #1e6b9b; color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 18px; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-sm { padding: 8px 16px; border-radius: 20px; border: 1px solid #ddd; background: #fff; font-weight: bold; color: #333; }
+        .btn-sm-primary { background: #1e6b9b; color: #fff; border: none; }
+        
+        .card { background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; transition: transform 0.2s; }
+        
+        .list-header { margin-bottom: 15px; }
+        .title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .title-row h2 { font-size: 18px; color: #1a2e3b; }
+        .search-box { display: flex; align-items: center; background: #f0f4f8; border-radius: 10px; padding: 8px 12px; }
+        .search-box input { width: 100%; background: transparent; border: none; outline: none; font-size: 14px; color: #333; margin-left: 5px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 14px; color: #555; margin-bottom: 5px; }
+        .form-group input, .form-group textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 10px; font-size: 16px; outline: none; }
+        .form-group textarea { height: 100px; resize: none; }
+        .btn-submit { width: 100%; padding: 14px; background: #1e6b9b; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 10px; }
+        
+        .hidden { display: none !important; }
+        .link-text { text-align: center; margin-top: 15px; font-size: 14px; color: #1e6b9b; text-decoration: underline; cursor: pointer; }
+        
+        .post-item { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .post-item:last-child { border-bottom: none; }
+        .post-item-title { font-size: 16px; font-weight: bold; color: #1e6b9b; margin-bottom: 5px; }
+        .post-item-meta { font-size: 12px; color: #888; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+        .post-item-content { font-size: 14px; color: #444; line-height: 1.5; }
+        
+        .btn-del { color: #e74c3c; font-size: 12px; border: 1px solid #e74c3c; background: #fff; padding: 2px 8px; border-radius: 10px; cursor: pointer; }
+        .empty-tip { text-align: center; color: #999; padding: 20px 0; font-size: 14px; }
+        
+        #toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; display: none; z-index: 999; text-align: center; }
+
+        #updateModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #fff; padding: 30px; border-radius: 20px; width: 80%; max-width: 320px; text-align: center; }
+        .modal-content h3 { color: #e74c3c; margin-bottom: 15px; font-size: 20px; }
+        .modal-content p { color: #555; font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+        .btn-update { background: #e74c3c; color: #fff; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+<div id="refreshTip">↓ 下拉刷新</div>
+
+<div class="app" id="app">
+    <div class="top-bar">
+        <div class="user-info" onclick="goHome()">
+            <div class="avatar" id="avatarTxt">?</div>
+            <span id="userTxt">未登录</span>
+        </div>
+        <div class="btn-group" id="topBtns">
+            <button class="btn-sm" onclick="showPage('login')">登录</button>
+            <button class="btn-sm btn-sm-primary" onclick="showPage('register')">注册</button>
+        </div>
+    </div>
+
+    <div class="card" id="page-home">
+        <div class="list-header">
+            <div class="title-row">
+                <h2>永久免费广场</h2>
+                <button class="btn-sm btn-sm-primary" onclick="goPost()" id="goPostBtn" style="display:none;">发新帖</button>
+            </div>
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="搜索帖子标题或内容..." oninput="handleSearch()">
+            </div>
+        </div>
+        <div id="postList">
+            <div class="empty-tip">正在从 GitHub 加载数据...</div>
+        </div>
+    </div>
+
+    <div class="card hidden" id="page-post">
+        <h2>发布新帖 <span style="font-size:14px; color:#1e6b9b; cursor:pointer;" onclick="goHome()">返回列表</span></h2>
+        <div class="form-group"><label>标题</label><input type="text" id="postTitle" placeholder="请输入标题"></div>
+        <div class="form-group"><label>作者</label><input type="text" id="postAuthor" readonly style="background:#eee;"></div>
+        <div class="form-group"><label>正文</label><textarea id="postContent" placeholder="写点什么吧..."></textarea></div>
+        <button class="btn-submit" onclick="submitPost()">发布到云端</button>
+    </div>
+
+    <div class="card hidden" id="page-login">
+        <h2>登录账号</h2>
+        <div class="form-group"><label>用户名</label><input type="text" id="loginUser" placeholder="输入用户名"></div>
+        <div class="form-group"><label>密码</label><input type="password" id="loginPass" placeholder="输入密码"></div>
+        <button class="btn-submit" onclick="doLogin()">立即登录</button>
+        <div class="link-text" onclick="showPage('register')">没有账号？去注册</div>
+    </div>
+
+    <div class="card hidden" id="page-register">
+        <h2>注册新账号</h2>
+        <div class="form-group"><label>用户名 (至少3位)</label><input type="text" id="regUser" placeholder="设置用户名"></div>
+        <div class="form-group"><label>密码 (至少4位)</label><input type="password" id="regPass" placeholder="设置密码"></div>
+        <button class="btn-submit" onclick="doRegister()">确认注册</button>
+        <div class="link-text" onclick="showPage('login')">已有账号？去登录</div>
+    </div>
+</div>
+
+<div id="toast">提示信息</div>
+
+<div id="updateModal">
+    <div class="modal-content">
+        <h3>🚀 发现新版本</h3>
+        <p>系统已更新，为了您的正常使用，请刷新页面更新至最新版本。</p>
+        <button class="btn-update" onclick="forceUpdate()">立即刷新更新</button>
+    </div>
+</div><script>
+    // ==========================================
+    // 🔐 加密配置区：请粘贴由 jiami.html 生成的两行代码
+    // ==========================================
+    let secretIv = '6vFQu6wnqeoCC46l';
+    let secretData = '8JdfRvVxIrwMC6nhJ7KCzv9nju61KZRDR0yBwqquGb3aIL1lKwgxzxnQy0lYLtE7S3oYtOT+WmNFDEz+01nPb21YOeb8R7aANLYht1f3WT+5VY9Z/NnBa9uOnmh25U/nETmHx2t+MnUqol/AgWo=';
+
+    const CURRENT_VERSION = '1.0.0'; 
+    
+    // 全局变量（解密后自动填充）
+    let GITHUB_TOKEN = '';
+    let GIST_ID = '';
+    const API_BASE = 'https://api.github.com/gists';
+    let allPosts = []; 
+
+    // 自动解密函数
+    async function decryptConfig() {
+        try {
+            const secretKey = 'my_forum_secret_key_12345678901234'; // 必须和 jiami.html 里一致
+            const enc = new TextEncoder();
+            const dec = new TextDecoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                "raw", enc.encode(secretKey), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+            );
+            const salt = enc.encode("salt_value_123");
+            const key = await crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial, { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+            );
+
+            const iv = new Uint8Array(atob(secretIv).split('').map(c => c.charCodeAt(0)));
+            const encrypted = new Uint8Array(atob(secretData).split('').map(c => c.charCodeAt(0)));
+
+            const decrypted = await crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: iv }, key, encrypted
+            );
+
+            const config = JSON.parse(dec.decode(decrypted));
+            GITHUB_TOKEN = config.token;
+            GIST_ID = config.gist;
+        } catch (e) {
+            console.error(e);
+            alert("配置解密失败！请确保使用的是同一个加密密钥，或重新生成密文。");
+        }
+    }
+
+    // ==========================================
+    // 下面是论坛逻辑
+    // ==========================================
+    function showToast(msg) {
+        var t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.display = 'block';
+        setTimeout(function() { t.style.display = 'none'; }, 3000);
+    }
+
+    function handleSearch() {
+        var keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+        var filteredPosts = [];
+        if (!keyword) {
+            filteredPosts = allPosts;
+        } else {
+            for (var i = 0; i < allPosts.length; i++) {
+                var p = allPosts[i];
+                if (p.title.toLowerCase().indexOf(keyword) > -1 || p.content.toLowerCase().indexOf(keyword) > -1) {
+                    filteredPosts.push(p);
+                }
+            }
+        }
+        renderListHTML(filteredPosts);
+    }
+
+    let startY = 0;
+    let isPulling = false;
+    const refreshTip = document.getElementById('refreshTip');
+
+    document.addEventListener('touchstart', function(e) {
+        if (document.getElementById('page-home').classList.contains('hidden')) return;
+        if (window.scrollY <= 0) {
+            startY = e.touches[0].pageY;
+            isPulling = true;
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function(e) {
+        if (!isPulling) return;
+        let currentY = e.touches[0].pageY;
+        let distance = currentY - startY;
+        if (distance > 0 && window.scrollY <= 0) {
+            let dampedDistance = distance * 0.4; 
+            if (dampedDistance > 60) dampedDistance = 60; 
+            refreshTip.style.top = (dampedDistance - 50) + 'px';
+            refreshTip.innerHTML = dampedDistance > 40 ? '↑ 松开立即刷新' : '↓ 下拉刷新';
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+        if (!isPulling) return;
+        isPulling = false;
+        let currentTop = parseInt(refreshTip.style.top || '-50');
+        if (currentTop > -10) {
+            refreshTip.innerHTML = '🔄 正在刷新...';
+            refreshTip.style.top = '10px'; 
+            renderPosts().then(function() {
+                setTimeout(function() {
+                    refreshTip.style.top = '-50px';
+                    showToast('刷新成功');
+                }, 500);
+            });
+        } else {
+            refreshTip.style.top = '-50px';
+        }
+    });
+
+    async function checkVersion() {
+        try {
+            var res = await fetch(API_BASE + '/' + GIST_ID, { headers: { 'Authorization': 'token ' + GITHUB_TOKEN } });
+            if (!res.ok) return;
+            var data = await res.json();
+            if (data.files && data.files['version.json']) {
+                var parsed = JSON.parse(data.files['version.json'].content);
+                if (parsed.version && parsed.version !== CURRENT_VERSION) {
+                    document.getElementById('updateModal').style.display = 'flex';
+                    document.getElementById('app').style.opacity = '0.3';
+                    return false;
+                }
+            }
+        } catch (e) {}
+        return true;
+    }
+
+    function forceUpdate() { location.reload(); }
+
+    function showPage(pageName) {
+        document.getElementById('page-home').className = 'card hidden';
+        document.getElementById('page-post').className = 'card hidden';
+        document.getElementById('page-login').className = 'card hidden';
+        document.getElementById('page-register').className = 'card hidden';
+        document.getElementById('page-' + pageName).className = 'card';
+        refreshUserBar();
+        if (pageName === 'home') renderPosts();
+    }
+
+    function refreshUserBar() {
+        var user = localStorage.getItem('my_forum_user');
+        var avatar = document.getElementById('avatarTxt');
+        var name = document.getElementById('userTxt');
+        var btnDiv = document.getElementById('topBtns');
+        var goPostBtn = document.getElementById('goPostBtn');
+
+        if (user) {
+            avatar.innerText = user.charAt(0).toUpperCase();
+            name.innerText = user + ' (已登录)';
+            btnDiv.innerHTML = '<button class="btn-sm" onclick="doLogout()">退出</button>';
+            goPostBtn.style.display = 'inline-block';
+            document.getElementById('postAuthor').value = user;
+        } else {
+            avatar.innerText = '?';
+            name.innerText = '未登录';
+            btnDiv.innerHTML = '<button class="btn-sm" onclick="showPage(\'login\')">登录</button>' +
+                               '<button class="btn-sm btn-sm-primary" onclick="showPage(\'register\')">注册</button>';
+            goPostBtn.style.display = 'none';
+        }
+    }
+
+    function goHome() { showPage('home'); }
+    function goPost() {
+        if (!localStorage.getItem('my_forum_user')) { showToast('请先登录再发帖'); showPage('login'); return; }
+        showPage('post');
+    }
+
+    function doRegister() {
+        var user = document.getElementById('regUser').value.trim();
+        var pass = document.getElementById('regPass').value;
+        if (user.length < 3) { showToast('用户名至少3个字符'); return; }
+        if (pass.length < 4) { showToast('密码至少4个字符'); return; }
+        var usersStr = localStorage.getItem('my_forum_db') || '{}';
+        var users = JSON.parse(usersStr);
+        if (users[user]) { showToast('用户名已存在！'); return; }
+        users[user] = btoa(pass); 
+        localStorage.setItem('my_forum_db', JSON.stringify(users));
+        showToast('注册成功，请登录！');
+        showPage('login');
+     }    function doLogin() {
+        var user = document.getElementById('loginUser').value.trim();
+        var pass = document.getElementById('loginPass').value;
+        if (!user || !pass) { showToast('请输入账号和密码'); return; }
+        var usersStr = localStorage.getItem('my_forum_db') || '{}';
+        var users = JSON.parse(usersStr);
+        if (!users[user]) { showToast('用户不存在'); return; }
+        if (users[user] !== btoa(pass)) { showToast('密码错误'); return; }
+        localStorage.setItem('my_forum_user', user);
+        showToast('欢迎回来，' + user);
+        showPage('home'); 
+    }
+
+    function doLogout() {
+        localStorage.removeItem('my_forum_user');
+        showToast('已退出');
+        showPage('home');
+    }
+
+    async function fetchGistData() {
+        var res = await fetch(API_BASE + '/' + GIST_ID, { headers: { 'Authorization': 'token ' + GITHUB_TOKEN } });
+        if (!res.ok) throw new Error("获取数据失败");
+        var data = await res.json();
+        return JSON.parse(data.files['forum_data.json'].content).posts || [];
+    }
+
+    async function saveGistData(posts) {
+        var res = await fetch(API_BASE + '/' + GIST_ID, {
+            method: 'PATCH',
+            headers: { 'Authorization': 'token ' + GITHUB_TOKEN, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: { "forum_data.json": { "content": JSON.stringify({ posts: posts }) } } })
+        });
+        if (!res.ok) throw new Error("写入云端失败");
+        return true;
+    }
+
+    async function renderPosts() {
+        var listDiv = document.getElementById('postList');
+        if (listDiv.innerHTML.indexOf('正在连接云端') === -1) listDiv.innerHTML = '<div class="empty-tip">正在连接云端...</div>';
+        try {
+            allPosts = await fetchGistData();
+            handleSearch(); 
+        } catch (e) {
+            listDiv.innerHTML = '<div class="empty-tip" style="color:red;">加载失败，请检查配置或网络</div>';
+        }
+    }
+
+    function renderListHTML(posts) {
+        var listDiv = document.getElementById('postList');
+        var currentUser = localStorage.getItem('my_forum_user');
+
+        if (posts.length === 0) {
+            listDiv.innerHTML = document.getElementById('searchInput').value.trim() !== '' 
+                ? '<div class="empty-tip">没有找到匹配的帖子</div>' 
+                : '<div class="empty-tip">还没有帖子，快来发第一帖吧！</div>';
+            return;
+        }
+
+        var html = '';
+        for (var i = posts.length - 1; i >= 0; i--) {
+            var p = posts[i];
+            var safeTitle = String(p.title).replace(/</g, "&lt;");
+            var safeContent = String(p.content).replace(/</g, "&lt;").replace(/\n/g, "<br>");
+            var deleteBtnHtml = (currentUser && currentUser === p.author) 
+                ? '<button class="btn-del" onclick="deletePost(' + allPosts.indexOf(p) + ')">删除</button>' : '';
+
+            html += `<div class="post-item">
+                <div class="post-item-title">${safeTitle}</div>
+                <div class="post-item-meta">
+                    <span>作者: ${p.author} | 时间: ${p.time}</span>
+                    ${deleteBtnHtml}
+                </div>
+                <div class="post-item-content">${safeContent}</div>
+            </div>`;
+        }
+        listDiv.innerHTML = html;
+    }
+
+    async function submitPost() {
+        var title = document.getElementById('postTitle').value.trim();
+        var content = document.getElementById('postContent').value.trim();
+        var author = document.getElementById('postAuthor').value;
+        if (!title) { showToast('请填写标题'); return; }
+        if (!content) { showToast('请填写正文'); return; }
+        showToast('正在发布...');
+        try {
+            var posts = await fetchGistData();
+            var now = new Date();
+            var timeStr = now.getFullYear() + '-' + (now.getMonth()+1) + '-' + now.getDate() + ' ' + now.getHours() + ':' + now.getMinutes();
+            posts.push({ title: title, author: author, content: content, time: timeStr });
+            await saveGistData(posts);
+            showToast('发布成功！');
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            document.getElementById('searchInput').value = '';
+            goHome(); 
+        } catch (e) {
+            showToast('发布失败，请检查网络');
+        }
+    }
+
+    async function deletePost(realIndex) {
+        if (!confirm('确定要删除这条帖子吗？')) return;
+        showToast('正在删除...');
+        try {
+            var posts = await fetchGistData();
+            var currentUser = localStorage.getItem('my_forum_user');
+            if (posts[realIndex].author !== currentUser) { showToast('你没有权限删除别人的帖子！'); return; }
+            posts.splice(realIndex, 1);
+            await saveGistData(posts);
+            showToast('已删除！');
+            goHome(); 
+        } catch (e) {
+            showToast('删除失败，请检查网络');
+        }
+    }
+
+    async function initApp() {
+        // 核心：先执行解密，再运行后续逻辑
+        await decryptConfig();
+        var isVersionOk = await checkVersion();
+        if (isVersionOk) {
+            refreshUserBar();
+            showPage('home');
+        }
+    }
+
+    // 启动
+    initApp();
+</script>
+</body>
+</html>
